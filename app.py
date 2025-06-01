@@ -30,20 +30,16 @@ def dashboard():
     selected_date = request.args.get('date')
     if not selected_date:
         selected_date = datetime.now().strftime('%Y-%m-%d')
-        print(selected_date)
 
     try:
         response = requests.get(session['script_url'])
         data = response.json()
 
-        print("Data before filter: ", data)
         # Correct date comparison (ignore 'Z' and parse to date)
         filtered_data = [
             d for d in data
             if (datetime.fromisoformat(d['Date'].replace('Z', '')) + timedelta(hours=5, minutes=30)).date().isoformat() == selected_date
         ]
-
-        print("Data after filter: ", filtered_data)
 
         return render_template('dashboard.html', data=filtered_data, selected_date=selected_date)
     except Exception as e:
