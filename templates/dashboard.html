@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard - Work Tracker</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    html {
+      scroll-behavior: smooth;
+    }
+    .live-indicator {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background-color: red;
+      animation: blink 1s infinite;
+      margin-right: 8px;
+    }
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0; }
+    }
+  </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+  <div class="p-4 max-w-4xl mx-auto">
+    <div class="flex justify-between items-center mb-4">
+      <h1 class="text-2xl font-bold">Work Tracker</h1>
+      <a href="/logout" class="text-red-500 hover:underline">Logout</a>
+    </div>
+
+    <form method="GET" class="mb-4">
+      <label for="date" class="block text-sm font-medium text-gray-700">Select Date</label>
+      <input type="date" id="date" name="date" value="{{ selected_date }}" class="mt-1 px-3 py-2 border border-gray-300 rounded-md w-full max-w-xs">
+      <button type="submit" class="mt-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Fetch Data</button>
+    </form>
+
+    {% if data %}
+      <div class="bg-white p-4 rounded shadow mb-4">
+        <h2 class="text-lg font-semibold mb-2">Today's Analytics</h2>
+        {% set total = data|length %}
+        {% set average = (data|map(attribute='Efficiency %')|map('float')|sum / total)|round(2) if total > 0 else 0 %}
+        <p class="text-sm text-gray-700">Total Entries: {{ total }}</p>
+        <p class="text-sm text-gray-700">Average Efficiency: <span class="font-semibold text-green-600">{{ average }}%</span></p>
+      </div>
+
+      <div class="space-y-2 overflow-y-auto max-h-[75vh]">
+        {% for row in data %}
+          {% set hour_string = row['Hour'] %}
+          {% set target_hour = loop.index0 %}
+          {% set time_display = '' %}
+          {% if 'T' in hour_string %}
+            {% set time_parts = hour_string.split('T')[1].split(':') %}
+            {% set utc_hour = time_parts[0]|int %}
+            {% set local_hour = (utc_hour + 6) % 24 %}
+            {% set next_hour = (local_hour + 1) % 24 %}
+            {% set target_hour = local_hour %}
+            {% set time_display = "%02d:00 - %02d:00"|format(local_hour, next_hour) %}
+          {% endif %}
+
+          {% set match = row['Match (Yes/No)']|lower %}
+          {% if match == 'yes' %}
+            {% set card_color = 'bg-green-100 text-green-900 font-semibold' %}
+          {% elif match == 'no' %}
+            {% set card_color = 'bg-red-100 text-red-900' %}
+          {% elif match == 'emergency' %}
+            {% set card_color = 'bg-yellow-100 text-yellow-900' %}
+          {% else %}
+            {% set card_color = 'bg-blue-100 text-blue-800' %}
+          {% endif %}
+
+          <div id="card-hour-{{ target_hour }}" class="{{ card_color }} rounded shadow p-4 transition hover:shadow-lg cursor-pointer" onclick="toggleDetails(this)">
+            <div class="flex justify-between items-center">
+              <div>
+                {% if time_display %}<div class="text-sm">Time: {{ time_display }}</div>{% endif %}
+                <div class="text-base">{{ row['Ideal Task'] }}</div>
+              </div>
+              <div id="live-{{ target_hour }}" class="hidden live-indicator"></div>
+            </div>
+            <div class="details hidden mt-2 space-y-1">
+              {% if row['Actual Task'] %}
+                <div class="text-sm">Actual: {{ row['Actual Task'] }}</div>
+              {% endif %}
+              {% if row['Type'] or row['Match (Yes/No)'] %}
+                <div class="text-sm">Type: {{ row['Type'] }} | Match: {{ row['Match (Yes/No)'] }}</div>
+              {% endif %}
+              {% if row['Efficiency %'] is not none %}
+                <div class="text-sm">Efficiency: {{ row['Efficiency %'] }}%</div>
+              {% endif %}
+              {% if row['Notes'] %}
+                <div class="text-xs mt-1">{{ row['Notes'] }}</div>
+              {% endif %}
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+      <script>
+        function toggleDetails(card) {
+          const details = card.querySelector('.details');
+          if (details) {
+            details.classList.toggle('hidden');
+          }
+        }
+
+        window.onload = () => {
+          const now = new Date();
+          const hour = now.getHours();
+          const targetCard = document.querySelector(`#card-hour-${hour}`);
+          const liveDot = document.querySelector(`#live-${hour}`);
+          if (targetCard) targetCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          if (liveDot) liveDot.classList.remove('hidden');
+        }
+      </script>
+    {% else %}
+      <p class="text-center text-gray-500 mt-10">No data available for the selected date.</p>
+    {% endif %}
+  </div>
+</body>
+</html>
